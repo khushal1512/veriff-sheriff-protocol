@@ -1,0 +1,146 @@
+pragma language_version >= 0.16 && <= 0.17;
+
+import CompactStandardLibrary;
+
+export enum VerificationStatus {
+  NONE,
+  PENDING,
+  VERIFIED,
+  REJECTED
+}
+
+//--- IDENTITY ATTESTATION ---
+export struct IdentityAttestation {
+  status: VerificationStatus,
+  isOver21: Bool, // New field!
+  policyVersion: Uint<64>
+}
+
+//--- CREDITWORTHINESS ATTESTATION ---
+export struct CreditAttestation {
+  status: VerificationStatus,
+  hasEverDefaulted: Bool,
+  loansPaid: Uint<32>,
+  creditScore: Uint<8>,
+  maxStablecoinBalance: Uint<64> // In USDC
+}
+
+export struct TravelAttestation {
+  status: VerificationStatus,
+  isBoardingPassVerified: Bool,
+  isVaccineVerified: Bool
+}
+
+export ledger owner: Bytes<32>;
+
+export ledger pendingIdentitySubmissions: Map<Bytes<32>, Bytes<32>>;
+export ledger pendingCreditSubmissions: Map<Bytes<32>, Bytes<32>>;
+export ledger pendingTravelSubmissions: Map<Bytes<32>, Bytes<32>>;
+
+export ledger identityAttestations: Map<Bytes<32>, IdentityAttestation>;
+export ledger creditAttestations: Map<Bytes<32>, CreditAttestation>;
+export ledger travelAttestations: Map<Bytes<32>, TravelAttestation>;
+
+constructor() {
+  const deployerPublicKey = ownPublicKey();
+  owner = disclose(persistentHash<ZswapCoinPublicKey>(deployerPublicKey));
+}
+
+// --- Witness Declarations ---
+witness getUserPii(): [Opaque<'string'>, Opaque<'string'>, Opaque<'string'>, Uint<8>]; // (Aadhaar, PAN, Hall Ticket, Age)
+witness getUserCreditData(): [Bool, Uint<32>, Uint<64>]; // (hasDefaulted, loansPaid, stablecoinBalance)
+witness getUserTravelData(): [Opaque<'string'>, Opaque<'string'>]; // (boardingPassNum, vaccineId)
+
+
+// --- IDENTITY CIRCUITS ---
+export circuit submitIdentityApplication(): [] {
+  const userPublicKey = ownPublicKey();
+  const [aadhaar, pan, hallTicket, age] = getUserPii();
+  const userKeyHash = persistentHash<ZswapCoinPublicKey>(userPublicKey);
+
+  const piiHash = persistentHash<[Opaque<'string'>, Opaque<'string'>, Opaque<'string'>, Uint<8>]>([aadhaar, pan, hallTicket, age]);
+  pendingIdentitySubmissions.insert(disclose(userKeyHash), disclose(piiHash));
+
+  const pendingAttestation = IdentityAttestation {
+    status: VerificationStatus.PENDING,
+    isOver21: age >= 21,
+    policyVersion: 1
+  };
+  identityAttestations.insert(disclose(userKeyHash), disclose(pendingAttestation));
+}
+
+export circuit approveIdentity(userToVerify: Bytes<32>): [] {
+  const callerPublicKey = ownPublicKey();
+  assert(persistentHash<ZswapCoinPublicKey>(callerPublicKey) == owner, "Only the owner can approve identity.");
+  let currentAttestation = identityAttestations.lookup(disclose(userToVerify));
+  const verifiedAttestation = IdentityAttestation {
+    status: VerificationStatus.VERIFIED,
+    isOver21: currentAttestation.isOver21,
+    policyVersion: 1
+  };
+  identityAttestations.insert(disclose(userToVerify), disclose(verifiedAttestation));
+  pendingIdentitySubmissions.remove(disclose(userToVerify));
+}
+
+//--- CREDIT CIRCUITS ---
+export circuit submitCreditApplication(): [] {
+  const userPublicKey = ownPublicKey();
+  const [hasDefaulted, loansPaid, stablecoinBalance] = getUserCreditData();
+  const userKeyHash = persistentHash<ZswapCoinPublicKey>(userPublicKey);
+  
+  const creditDataHash = persistentHash<[Bool, Uint<32>, Uint<64>]>([hasDefaulted, loansPaid, stablecoinBalance]);
+  pendingCreditSubmissions.insert(disclose(userKeyHash), disclose(creditDataHash));
+
+  const pendingAttestation = CreditAttestation {
+    status: VerificationStatus.PENDING,
+    hasEverDefaulted: hasDefaulted,
+    loansPaid: loansPaid,
+    creditScore: 178,
+    maxStablecoinBalance: stablecoinBalance
+  };
+  creditAttestations.insert(disclose(userKeyHash), disclose(pendingAttestation));
+}
+
+export circuit approveCredit(userToVerify: Bytes<32>): [] {
+  const callerPublicKey = ownPublicKey();
+  assert(persistentHash<ZswapCoinPublicKey>(callerPublicKey) == owner, "Only the owner can approve credit.");
+  let currentAttestation = creditAttestations.lookup(disclose(userToVerify));
+  const verifiedAttestation = CreditAttestation {
+    status: VerificationStatus.VERIFIED,
+    hasEverDefaulted: currentAttestation.hasEverDefaulted,
+    loansPaid: currentAttestation.loansPaid,
+    creditScore: currentAttestation.creditScore,
+    maxStablecoinBalance: currentAttestation.maxStablecoinBalance
+  };
+  creditAttestations.insert(disclose(userToVerify), disclose(verifiedAttestation));
+  pendingCreditSubmissions.remove(disclose(userToVerify));
+}
+
+//--- TRAVEL CIRCUITS ---
+export circuit submitTravelApplication(): [] {
+  const userPublicKey = ownPublicKey();
+  const [boardingPass, vaccineId] = getUserTravelData();
+  const userKeyHash = persistentHash<ZswapCoinPublicKey>(userPublicKey);
+
+  const travelDataHash = persistentHash<[Opaque<'string'>, Opaque<'string'>]>([boardingPass, vaccineId]);
+  pendingTravelSubmissions.insert(disclose(userKeyHash), disclose(travelDataHash));
+
+  const pendingAttestation = TravelAttestation {
+    status: VerificationStatus.PENDING,
+    isBoardingPassVerified: false, 
+    isVaccineVerified: false 
+  };
+  travelAttestations.insert(disclose(userKeyHash), disclose(pendingAttestation));
+}
+
+export circuit approveTravel(userToVerify: Bytes<32>): [] {
+  const callerPublicKey = ownPublicKey();
+  assert(persistentHash<ZswapCoinPublicKey>(callerPublicKey) == owner, "Only the owner can approve travel compliance.");
+  const verifiedAttestation = TravelAttestation {
+    status: VerificationStatus.VERIFIED,
+    isBoardingPassVerified: true,
+    isVaccineVerified: true
+  };
+  travelAttestations.insert(disclose(userToVerify), disclose(verifiedAttestation));
+  pendingTravelSubmissions.remove(disclose(userToVerify));
+}

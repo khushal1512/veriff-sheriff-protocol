@@ -1,0 +1,17 @@
+{
+  "name": "vsp-contract",
+  "version": "1.0.0",
+  "scripts": {
+    "compact": "compactc src/VerifiedID.compact src/managed/verifiedid",
+    "build": "npm run compact && tsc --project tsconfig.build.json",
+    "test": "vitest",
+    "clean": "rm -rf dist src/managed"
+  },
+  "dependencies": {
+    "@midnight-ntwrk/compact-runtime": "^0.8.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "vitest": "^0.32.0"
+  }
+}
