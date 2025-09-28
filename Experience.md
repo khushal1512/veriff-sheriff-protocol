@@ -10,7 +10,7 @@ We spent sleepless nights debugging, learning, and iterating. We wrestled with u
 
 And then—it clicked.
 
-We built VSP (Verified Secure Protocol): a privacy-preserving user-attestation system on the Midnight Blockchain. VSP enables secure verification of sensitive user attributes—like government IDs, vaccination records, facial biometrics, and financial credibility—without ever exposing that data on-chain. Inspired by the principle of "Verify Once, Use Anywhere", our system allows trusted verifiers to issue attestations that users can selectively share across applications, all while preserving anonymity and consent.
+We built VSP (Veriff Sheriff Protocol): a privacy-preserving user-attestation system on the Midnight Blockchain. VSP enables secure verification of sensitive user attributes—like government IDs, vaccination records, facial biometrics, and financial credibility—without ever exposing that data on-chain. Inspired by the principle of "Verify Once, Use Anywhere", our system allows trusted verifiers to issue attestations that users can selectively share across applications, all while preserving anonymity and consent.
 
 This project is more than a hack—it’s a vision. We believe privacy should be a default, not a luxury. With VSP, we’re laying the groundwork for a future where individuals control their identity, and organizations can verify claims securely and efficiently.
 
